@@ -8,5 +8,9 @@ contextBridge.exposeInMainWorld('launcher', {
   apply: () => ipcRenderer.invoke('launcher-apply'),
   play: () => ipcRenderer.invoke('launcher-play'),
   help: () => ipcRenderer.invoke('launcher-help'),
+  catalog: () => ipcRenderer.invoke('launcher-catalog'),
+  select: version => ipcRenderer.invoke('launcher-select', version),
+  use: version => ipcRenderer.invoke('launcher-use', version),
+  remove: version => ipcRenderer.invoke('launcher-remove', version),
   onUpdate: callback => { const listener = (_event, state) => callback(state); ipcRenderer.on('launcher-update', listener); return () => ipcRenderer.removeListener('launcher-update', listener); }
 });

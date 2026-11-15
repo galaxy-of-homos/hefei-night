@@ -45,24 +45,94 @@ class Updater {
     return { envelope, payload, base: base + payload.version + '/', source: '备用下载源', ca: this.runtime.fallbackCa };
   }
   async check() {
-    if (this.busy || this.state.phase === 'ready') return this.state;
+    return this.checkVersion();
+  }
+  async checkVersion(version) {
+    if (this.busy) return this.state;
+    if (version !== undefined) compareVersions(version, '0.0.0');
+    this.staged = null;
     this.controller = new AbortController(); this.candidate = null;
     this.set({ phase: 'checking', message: '正在检查 GitHub Release…', source: '', availableVersion: null, received: 0, total: 0 });
     try {
-      try { this.candidate = await this.github(); }
+      try { this.candidate = await this.github(version); }
       catch (error) {
         if (this.controller.signal.aborted) throw error;
         this.set({ message: '主下载源暂不可用，正在检查备用源…', source: '备用下载源' });
-        this.candidate = await this.fallback();
+        this.candidate = await this.fallback(version);
       }
       const { payload, source } = this.candidate;
-      return this.set({ phase: compareVersions(payload.version, this.version) > 0 ? 'available' : 'current', availableVersion: payload.version,
-        source, message: compareVersions(payload.version, this.version) > 0 ? `发现新版本 ${payload.version}` : '当前已是最新版本', notes: payload.notes, total: payload.artifact.size });
+      const available = version ? payload.version !== this.version : compareVersions(payload.version, this.version) > 0;
+      return this.set({ phase: available ? 'available' : 'current', availableVersion: payload.version,
+        source, message: available ? `可安装版本 ${payload.version}` : '当前已是最新版本', notes: payload.notes, total: payload.artifact.size });
     } catch {
       return this.set({ phase: 'offline', message: this.controller.signal.aborted ? '已取消检查，可启动当前版本。' : '暂时无法检查更新，可启动当前版本或稍后重试。' });
     }
   }
   versionDirectory(version) { compareVersions(version, '0.0.0'); return path.join(this.directory, 'versions', version); }
+  async catalog() {
+    let releases = [], online = true;
+    try {
+      for (let page = 1; page <= 5; page++) {
+        const batch = await this.transport(`https://api.github.com/repos/${this.repository}/releases?per_page=100&page=${page}`);
+        if (!Array.isArray(batch)) throw Error('版本列表格式错误。');
+        for (const release of batch) {
+          if (release.draft || release.prerelease || !/^v\d+\.\d+\.\d+$/.test(release.tag_name)) continue;
+          const version = release.tag_name.slice(1);
+          try { compareVersions(version, '0.0.0'); } catch { continue; }
+          const names = new Set((release.assets || []).map(a => a.name));
+          releases.push({ version, name: String(release.name || release.tag_name), notes: String(release.body || '').slice(0,16000),
+            installable: names.has('latest.json') && names.has(`HefeiNight-${version}-win-x64.exe`) });
+        }
+        if (batch.length < 100) break;
+      }
+      releases.sort((a,b) => compareVersions(b.version,a.version));
+      this.releaseList = releases;
+    } catch { online = false; releases = this.releaseList || []; }
+    return { online, releases, installed: await this.installed() };
+  }
+  async installed() {
+    const entries = [{ version: this.version, current: true, bundled: true }];
+    const base = path.join(this.directory, 'versions');
+    for (const entry of await fs.readdir(base, {withFileTypes:true}).catch(() => [])) {
+      if (!entry.isDirectory()) continue;
+      try {
+        if (entry.name === this.version) continue;
+        const dir = this.versionDirectory(entry.name);
+        const envelope = JSON.parse(await fs.readFile(path.join(dir,'manifest.json'),'utf8'));
+        const payload = verifyManifest(envelope,this.publicKey);
+        if (payload.version !== entry.name || (await fs.stat(path.join(dir,payload.artifact.name))).size !== payload.artifact.size) continue;
+        entries.push({version:payload.version,size:payload.artifact.size,current:false,bundled:false});
+      } catch { /* Incomplete or invalid installations never become launch choices. */ }
+    }
+    return entries.sort((a,b) => compareVersions(b.version,a.version));
+  }
+  async use(version) {
+    if (this.busy) throw Error('请先完成或取消当前操作。');
+    if (version === this.version) throw Error('已经在使用此版本。');
+    const dir = this.versionDirectory(version);
+    this.set({phase:'verifying',message:`正在校验 v${version}…`});
+    try {
+      const envelope = JSON.parse(await fs.readFile(path.join(dir,'manifest.json'),'utf8'));
+      if (envelope.payload?.version !== version) throw Error('版本目录与清单不一致。');
+      return await this.verified(envelope);
+    } catch (error) { this.set({phase:'idle',message:'版本校验失败，可重新下载；当前游戏仍可启动。'}); throw error; }
+  }
+  async remove(version) {
+    if (this.busy) throw Error('请先完成或取消当前操作。');
+    if (version === this.version) throw Error('不能删除当前版本。');
+    const dir = this.versionDirectory(version);
+    const prior = this.state.phase;
+    this.set({phase:'verifying',message:`正在移除 v${version}…`});
+    try {
+      const active = await fs.readFile(path.join(this.directory,'active.json'),'utf8').then(JSON.parse).catch(() => null);
+      if (active?.payload?.version === version) throw Error('不能删除当前启用的版本。');
+      if ((await fs.lstat(dir)).isSymbolicLink()) throw Error('不能删除链接目录。');
+      await fs.rm(dir,{recursive:true,force:true});
+      if (this.staged?.payload.version === version) this.staged = null;
+      this.set({phase:this.staged ? 'ready' : 'idle',message:'已删除下载的版本，当前游戏保持可用。'});
+      return this.installed();
+    } catch (error) { this.set({phase:prior,message:error.message}); throw error; }
+  }
   async verified(envelope) {
     const payload = verifyManifest(envelope, this.publicKey);
     const file = path.join(this.versionDirectory(payload.version), payload.artifact.name);
@@ -72,7 +142,7 @@ class Updater {
   async active() {
     try {
       const envelope = JSON.parse(await fs.readFile(path.join(this.directory, 'active.json'), 'utf8'));
-      if (compareVersions(envelope.payload.version, this.version) <= 0) return null;
+      if (compareVersions(envelope.payload.version, this.version) === 0) return null;
       return await this.verified(envelope);
     } catch { return null; }
   }

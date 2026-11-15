@@ -119,3 +119,9 @@ v1.28.0 传说橘猫三连挠：8 米内仍会炸毛预警，2.5 米内触发 1.
 
 v1.29.0 AI嘉豪加强：开启形态期间颈椎病暂不影响肘击，层数保留；形态结束后照常增加一层并恢复前后摇惩罚。每次开启在地图随机空地生成 3 个戴 VR 跳舞的半透明本人幻影，全员可见；附近普通哈基米和传说橘猫会对幻影炸毛哈气。幻影随 15 秒形态结束消失，不参与胜负和玩家伤害判定。联机请所有玩家更新 v1.29.0。
 Reuse the original skinned VR hunter glTF and Dance action. Ghost clones share geometry, own their skeletons/materials, disable shadows, and dispose mixers, bone textures and owned overlays when removed. Host chooses three spaced, collision-free locations; P2P snapshots synchronize positions, lifetime and animation phase. Perception-only negative IDs never enter survivor lists, damage, cages, repair AI or victory counts.
+# 启动器版本管理
+
+- 基于团队现有启动器分支，加入 GitHub Releases 正式版本列表、指定版本安装、已安装版本切换及删除。
+- 历史版本切换需明确选择，自动更新仍只前进；切换前重新验证签名、文件大小和 SHA-256。
+- 当前版本与启用版本不能删除，损坏或不完整的本地版本不进入启动列表，网络失败仍可启动内置游戏。
+- 新增版本管理单元测试和真实 Electron IPC 下载、安装、删除、游戏启动验证。
