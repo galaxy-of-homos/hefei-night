@@ -134,3 +134,56 @@ test('real streaming download handles redirects, bounds, timeout and cancellatio
   await assert.rejects(request(base+'/hang',{timeout:50}));
   const controller=new AbortController();const task=request(base+'/hang',{signal:controller.signal});controller.abort();await assert.rejects(task);
 });
+
+test('catalog excludes drafts and prereleases, sorts semantically, and marks incomplete assets',async t=>{
+  const {updater}=await fixture(t);
+  updater.transport=async()=>[
+    {tag_name:'v1.9.0',assets:[{name:'latest.json'},{name:'HefeiNight-1.9.0-win-x64.exe'}]},
+    {tag_name:'v1.10.0',assets:[]},
+    {tag_name:'v9.0.0',draft:true},
+    {tag_name:'v8.0.0',prerelease:true},
+    {tag_name:'v01.0.0'}, {tag_name:'../bad'}
+  ];
+  const result=await updater.catalog();
+  assert.equal(result.online,true);
+  assert.deepEqual(result.releases.map(x=>x.version),['1.10.0','1.9.0']);
+  assert.equal(result.releases[0].installable,false);assert.equal(result.releases[1].installable,true);
+  assert.equal(result.installed[0].version,'1.0.0');
+});
+
+test('offline catalog still exposes installed versions without trusting invalid local metadata',async t=>{
+  const {updater,dir}=await fixture(t);await updater.check();await updater.download();
+  await fs.mkdir(path.join(dir,'versions','9.0.0'));await fs.writeFile(path.join(dir,'versions','9.0.0','manifest.json'),'{}');
+  updater.transport=async()=>{throw Error('offline');};
+  const result=await updater.catalog();assert.equal(result.online,false);
+  assert.deepEqual(result.installed.map(x=>x.version),['1.0.1','1.0.0']);
+});
+
+test('explicit historical selection allows rollback; automatic check still refuses downgrade',async t=>{
+  const {updater,dir}=await fixture(t);updater.version='1.0.2';
+  await updater.check();assert.equal(updater.state.phase,'current');
+  await updater.checkVersion('1.0.1');assert.equal(updater.state.phase,'available');
+  await updater.download();assert.equal(updater.state.phase,'ready');
+  await writeJSON(path.join(dir,'active.json'),updater.staged.envelope);
+  assert.equal((await updater.active()).payload.version,'1.0.1');
+  const chosen=await updater.use('1.0.1');assert.equal(chosen.payload.version,'1.0.1');
+  await assert.rejects(updater.use('1.0.1'),/完成或取消/);
+});
+
+test('switching rehashes installed binaries and a failure leaves current game available',async t=>{
+  const {updater}=await fixture(t);await updater.check();await updater.download();
+  await fs.writeFile(updater.staged.file,Buffer.alloc(bytes.length,1));
+  await assert.rejects(updater.use('1.0.1'),/校验失败/);
+  assert.equal(updater.state.phase,'idle');assert.equal(updater.version,'1.0.0');
+});
+
+test('remove protects current/active versions and rejects paths outside managed versions',async t=>{
+  const {updater,dir}=await fixture(t);await updater.check();await updater.download();
+  await assert.rejects(updater.remove('1.0.0'),/当前版本/);
+  await assert.rejects(updater.remove('../outside'));
+  await writeJSON(path.join(dir,'active.json'),updater.staged.envelope);
+  await assert.rejects(updater.remove('1.0.1'),/当前启用/);
+  await fs.rm(path.join(dir,'active.json'));await updater.remove('1.0.1');
+  assert.equal(updater.staged,null);assert.equal(updater.state.phase,'idle');
+  assert.deepEqual((await updater.installed()).map(x=>x.version),['1.0.0']);
+});

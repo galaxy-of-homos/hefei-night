@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src hefei:; connect-src 'none'; base-uri 'none'; form-action 'none'">
-  <title>合肥惊魂夜 · 登录器</title><link rel="stylesheet" href="style.css">
+  <title>合肥惊魂夜 · 启动器</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
@@ -22,6 +22,13 @@
         <p class="transfer" id="transfer" hidden></p>
         <p class="source" id="source">优先从 GitHub Release 获取更新</p>
         <div class="update-actions"><button id="check" class="secondary" type="button">检查更新</button><button id="update" class="secondary" type="button" hidden>下载更新</button><button id="cancel" class="text-button" type="button" hidden>取消</button></div>
+      </section>
+      <section class="versions" aria-labelledby="versions-title">
+        <div class="version-row"><h3 id="versions-title">版本管理</h3><button class="text-button" id="refresh-versions" type="button">刷新列表</button></div>
+        <p id="catalog-status" class="source" role="status">正在读取组织仓库的 Releases…</p>
+        <label for="release-select">可下载版本</label>
+        <div class="release-picker"><select id="release-select" aria-label="可下载版本"><option value="">暂无发布版本</option></select><button id="select-version" class="secondary" type="button" disabled>选择</button></div>
+        <div id="installed-list" aria-label="已安装版本"></div>
       </section>
       <details id="release-notes"><summary>本次更新内容</summary><p id="notes">版本分发从 1.0.0 开始，保留现有角色、地图与 P2P 联机玩法。</p></details>
       <footer><button id="play" class="primary" type="button">启动游戏</button><p>支持单人 AI 对局与最多五人 P2P 联机</p></footer>

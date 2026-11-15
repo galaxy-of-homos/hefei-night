@@ -109,6 +109,16 @@ ipcMain.handle('launcher-state', event => { fromLauncher(event); return updater.
 ipcMain.handle('launcher-check', event => { fromLauncher(event); return updater.check(); });
 ipcMain.handle('launcher-download', event => { fromLauncher(event); return updater.download(); });
 ipcMain.handle('launcher-cancel', event => { fromLauncher(event); updater.cancel(); });
+ipcMain.handle('launcher-catalog', event => { fromLauncher(event); return updater.catalog(); });
+ipcMain.handle('launcher-select', (event, version) => { fromLauncher(event); return updater.checkVersion(version); });
+ipcMain.handle('launcher-remove', (event, version) => { fromLauncher(event); return updater.remove(version); });
+ipcMain.handle('launcher-use', async (event, version) => {
+  fromLauncher(event);
+  const candidate = await updater.use(version);
+  updater.set({phase:'restarting',message:`正在切换到 v${version}…`});
+  try { await handoff(candidate); }
+  catch { updater.set({phase:'idle',message:'版本切换失败，当前游戏保持可用。'}); }
+});
 ipcMain.handle('launcher-apply', async event => {
   fromLauncher(event);
   if (updater.state.phase !== 'ready' || !updater.staged) return;
@@ -139,13 +149,13 @@ app.whenReady().then(async () => {
   }
   registerResources();
   if (testFolder || portraitFolder || process.argv.includes('--game')) { await openGame(); return; }
-  launcherWindow = new BrowserWindow({width:1080,height:740,minWidth:800,minHeight:620,show:false,title:'合肥惊魂夜 · 登录器',backgroundColor:'#122a33',
+  launcherWindow = new BrowserWindow({width:1120,height:900,minWidth:800,minHeight:620,show:false,title:'合肥惊魂夜 · 启动器',backgroundColor:'#122a33',
     webPreferences:{preload:path.join(__dirname,'launcher','preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,offscreen:!!launcherSmoke}});
   launcherWindow.webContents.setWindowOpenHandler(() => ({action:'deny'}));
   launcherWindow.webContents.on('will-navigate',(event,url)=>{if(url!=='hefei://launcher/index.html')event.preventDefault();});
   launcherWindow.once('ready-to-show',()=>{if(!launcherSmoke)launcherWindow.show();});
   await launcherWindow.loadURL('hefei://launcher/index.html');
-  if (launcherSmoke) { await require('./tools/test-launcher-ui.cjs').run(launcherWindow, path.resolve(launcherSmoke.split('=').slice(1).join('=')), app); return; }
+  if (launcherSmoke) { await require('./tools/test-launcher-ui.cjs').run(launcherWindow, path.resolve(launcherSmoke.split('=').slice(1).join('=')), app, updater); return; }
   await updater.confirm();
   const activation = process.argv.find(arg=>arg.startsWith('--hefei-activation='))?.split('=')[1];
   if (activation && /^[a-f0-9-]{36}$/.test(activation)) await writeJSON(path.join(updater.directory,'ready-'+activation+'.json'),{version:app.getVersion()});
