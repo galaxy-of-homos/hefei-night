@@ -2,6 +2,9 @@ import {blocked,clamp,move} from './core.mjs';
 import {immuneToNegative} from './vr-hunter.mjs';
 
 export const TRAFFIC_STUN=3,TRAFFIC_FLIGHT=1.05,ROAD_EDGE=8.5;
+export const ROAD_CROSSINGS=[-22,22],ROAD_FENCE_X=8.9,ROAD_GAP_HALF=1.8,TRAFFIC_AIR_SECONDS=1.1;
+export const roadFenceSegments=()=>[-1,1].flatMap(side=>[[-39,ROAD_CROSSINGS[0]-ROAD_GAP_HALF],[ROAD_CROSSINGS[0]+ROAD_GAP_HALF,ROAD_CROSSINGS[1]-ROAD_GAP_HALF],[ROAD_CROSSINGS[1]+ROAD_GAP_HALF,39]].map(([start,end])=>({x:side*ROAD_FENCE_X,z:(start+end)/2,w:.18,d:end-start,roadFence:true})));
+export function launchTrafficCar(car){if(car.lift>0)return false;car.lift=TRAFFIC_AIR_SECONDS;return true;}
 export const ROAD_GENERATORS=[[-16,-29],[18,-25],[-28,-6],[16,1],[-17,17],[19,30],[-27,34]];
 export const ROAD_GATES=[[-36,0,'西侧大楼出口'],[36,0,'东侧大楼出口']];
 export const ROAD_CAGES=[[-25,-33],[19,10],[-19,9]];
@@ -15,20 +18,24 @@ export function stepTrafficFlight(actor,dt,obstacles=[]){
   if(immuneToNegative(actor)){actor.trafficFlight=0;return;}
   if(actor.state!=='active'){actor.trafficFlight=0;return;}
   let left=Math.min(dt,actor.trafficFlight||0);
-  while(left>1e-7){const step=Math.min(.01,left);move(actor,actor.trafficVX*step,actor.trafficVZ*step,obstacles);left-=step;}
+  // Traffic launches arc above the waist-high roadside fences.
+  const flightObstacles=actor.trafficFlight>0?obstacles.filter(o=>!o.roadFence):obstacles;
+  while(left>1e-7){const step=Math.min(.01,left);move(actor,actor.trafficVX*step,actor.trafficVZ*step,flightObstacles);left-=step;}
   actor.trafficFlight=Math.max(0,(actor.trafficFlight||0)-dt);
 }
 export const trafficHeight=actor=>actor.trafficFlight>0?Math.sin(Math.PI*clamp(1-actor.trafficFlight/TRAFFIC_FLIGHT,0,1))*3:0;
 export function stepTraffic(cars,dt,actors=[],cats=[],obstacles=[]){
-  const hits=[],flattened=[],lifted=[];
+  const hits=[],flattened=[],lifted=[],rammed=[];
   for(const car of cars){
     const oldZ=car.z,travel=car.direction*car.speed*dt;
     car.z+=travel;car.travel+=Math.abs(travel);car.lift=Math.max(0,(car.lift||0)-dt);
     const low=Math.min(oldZ,car.z)-2.15,high=Math.max(oldZ,car.z)+2.15;
     const contact=a=>Math.abs(a.x-car.x)<1.45&&a.z>=low&&a.z<=high;
     if(!car.lift){
+      const driver=actors.find(a=>a.state==='active'&&a.driving&&a.drivePhase==='driving'&&(a.hunterCharacter??0)===0&&contact(a));
       const orange=cats.find(c=>c.legendary&&!['kicked','flattened'].includes(c.phase)&&contact(c));
-      if(orange){car.lift=1.1;lifted.push(orange);}
+      if(driver){launchTrafficCar(car);rammed.push(car);}
+      else if(orange){launchTrafficCar(car);lifted.push(orange);}
       else {
         for(const actor of actors){
           if(actor.state!=='active'||immuneToNegative(actor)||actor.invincible>0||actor.trafficImmunity>0||actor.trafficFlight>0||actor.launchTime>0||actor.shoeTime>0||!contact(actor))continue;
@@ -44,5 +51,5 @@ export function stepTraffic(cars,dt,actors=[],cats=[],obstacles=[]){
     }
     if(car.z>48)car.z-=96;if(car.z< -48)car.z+=96;
   }
-  return {hits,flattened:[...new Set(flattened)],lifted};
+  return {hits,flattened:[...new Set(flattened)],lifted,rammed};
 }

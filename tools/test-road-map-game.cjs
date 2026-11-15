@@ -1,5 +1,5 @@
 const {app,BrowserWindow,protocol,ipcMain,session}=require('electron'),fs=require('node:fs/promises'),path=require('node:path'),assert=require('node:assert/strict');
-const {createSignalingServer,connectSignaling}=require('../signaling.cjs');const root=path.resolve(__dirname,'..'),out=path.resolve(process.argv[2]||'../road-map-game'),windows=[],clients=new Map(),tlsDir=path.join(out,'tls');let setupServer;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const {createSignalingServer,connectSignaling}=require('../signaling.cjs');const root=path.resolve(__dirname,'..'),out=path.resolve(process.argv[2]||'../road-map-120-game'),windows=[],clients=new Map(),tlsDir=path.join(out,'tls');let setupServer;const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 protocol.registerSchemesAsPrivileged([{scheme:'hefei',privileges:{standard:true,secure:true,supportFetchAPI:true}}]);
 ipcMain.handle('signal-connect',async(e,options)=>{try{const c=await connectSignaling({...options,host:'127.0.0.1',port:setupServer.port,ca:await fs.readFile(path.join(tlsDir,'cert.pem'))},m=>{if(!e.sender.isDestroyed())e.sender.send('signal-event',m);});clients.set(e.sender,c);return {ok:true,id:c.id,hostId:c.hostId,code:c.code};}catch(error){return {ok:false,message:error.message};}});ipcMain.on('signal-send',(e,m)=>clients.get(e.sender)?.send(m));ipcMain.handle('signal-close',e=>{clients.get(e.sender)?.close();clients.delete(e.sender);});
 app.whenReady().then(async()=>{let result;const errors=[],until=async(fn,label,sec=20)=>{const end=Date.now()+sec*1000;await fs.writeFile(path.join(out,'phase.txt'),label);while(Date.now()<end){if(await fn())return;await sleep(40);}throw Error('Timeout: '+label);};
@@ -11,7 +11,7 @@ app.whenReady().then(async()=>{let result;const errors=[],until=async(fn,label,s
 
 
  await set({mapId:'hefei-road'});await shot(host,'lobby',800);
- let layout=await hs();assert.equal(layout.mapInfo.generators.length,7);assert.equal(layout.mapInfo.gates.length,2);
+ let layout=await hs();assert.equal(layout.mapInfo.generators.length,7);assert.equal(layout.mapInfo.gates.length,2);for(const name of ['老乡鸡','麦当劳','肯德基','必胜客','逼养的火鸡面','星星大战9舔性者撅起'])assert(layout.mapInfo.signs.includes(name));assert.equal(layout.mapInfo.obstacles.filter(o=>o.roadFence).length,6);
  await gj("document.querySelector('#hunter-role').click()");
  await hj("document.querySelector('#net-open').click();document.querySelector('#net-create').click()");
  await until(()=>hj("/^[0-9]{6}$/.test(document.querySelector('#room-code').textContent)"),'create local room');
@@ -35,7 +35,13 @@ app.whenReady().then(async()=>{let result;const errors=[],until=async(fn,label,s
  await until(async()=>(await gs()).survivors[0].trafficFlight===0&&(await gs()).hunter.trafficFlight===0,'guest lands on sidewalk',4);
  for(const state of [await hs(),await gs()]){assert(state.survivors[0].x< -11.4);assert(state.hunter.x>11.4);assert.equal(state.survivors[0].hp,2);assert(state.hunter.stun>0);}
  assert((await gs()).renderActors[4].x>11.2,'guest predicted hunter reaches sidewalk');
- await set({survivors:{0:{x:-12,z:4,stun:300}},hunter:{x:18,z:-5,stun:300},cats:[{id:0,x:-10,z:0,cooldown:300}],traffic:[...parked.filter(c=>c.id!==0),{id:0,x:-5.8,z:-6,speed:2,direction:1}]});
+ await set({traffic:parked,hunter:{x:-5.8,z:10,angle:0,stun:0,cooldown:0,attack:0,trafficFlight:0},survivors:{0:{x:-12,z:15,stun:0}},camera:{yaw:-.6,pitch:.28,distance:12}});
+ tap(guest,'Q');await until(async()=>(await hs()).hunter.driving,'classic hunter starts driving');
+ await set({traffic:[{id:0,x:-5.8,z:15,speed:0,lift:0}]});
+ await until(async()=>(await gs()).traffic[0].lift>.2,'rammed traffic airborne on guest');
+ assert((await hs()).hunter.driving);assert.equal((await hs()).hunter.stun,0);
+ await shot(host,'ramming-traffic',160);await set({stopCar:true,traffic:parked.map(c=>({...c,lift:0}))});
+ await set({survivors:{0:{x:-12,z:26,stun:300}},hunter:{x:18,z:-5,stun:300},cats:[{id:0,x:-10,z:22,cooldown:300}],traffic:[...parked.filter(c=>c.id!==0),{id:0,x:-5.8,z:18,speed:.8,lift:0,direction:1}]});
  const catX=(await hs()).cats[0].x;await until(async()=>(await hs()).cats[0].x>catX+.5,'cat follows car');
  await until(async()=>(await gs()).cats[0]?.phase==='flattened','cat flattened on guest',10);
  await until(async()=>(await gs()).catVisuals[0].scaleY<.2,'flat mesh');
@@ -48,7 +54,7 @@ app.whenReady().then(async()=>{let result;const errors=[],until=async(fn,label,s
  await shot(host,'building-gate');
  assert.equal((await hs()).survivors[0].state,'escaped');
  assert(!errors.length,errors.join('\n'));
- result={passed:true,version:require('../package.json').version,protocol:require('../signaling.cjs').GAME_PROTOCOL,actualThreeJSAndTwoPeerWebRTC:true,hostSelectsMap:true,sevenGeneratorsOnBothPeers:true,eightCarsMoveOnGuest:true,guestTrafficInterpolationKeepsHistory:true,bothFactionsKnockedToRoadside:true,guestHunterCollisionSync:true,noTrafficDamage:true,catChasesAndFlattensThenRecovers:true,gateUnderTowerOpensAndEscapes:true,errors};
+ result={passed:true,version:require('../package.json').version,protocol:require('../signaling.cjs').GAME_PROTOCOL,actualThreeJSAndTwoPeerWebRTC:true,hostSelectsMap:true,allFiveShopSignsAndBillboard:true,fourFenceOpenings:true,classicCarRamsTrafficOnBothPeers:true,sevenGeneratorsOnBothPeers:true,eightCarsMoveOnGuest:true,guestTrafficInterpolationKeepsHistory:true,bothFactionsKnockedToRoadside:true,guestHunterCollisionSync:true,noTrafficDamage:true,catChasesAndFlattensThenRecovers:true,gateUnderTowerOpensAndEscapes:true,errors};
  }catch(e){result={passed:false,error:e.stack,errors};for(let i=0;i<windows.length;i++)try{await fs.writeFile(path.join(out,'failure-'+i+'.json'),JSON.stringify(await windows[i].webContents.executeJavaScript("import(document.querySelector('script[type=module][src]').src).then(m=>m.networkTestState())"),null,2));await fs.writeFile(path.join(out,'failure-'+i+'.png'),(await windows[i].webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());}catch{}}
  await fs.writeFile(path.join(out,'result.json'),JSON.stringify(result,null,2));for(const c of clients.values())c.close();windows.forEach(w=>w.destroy());if(setupServer)await setupServer.close();app.exit(result.passed?0:1);
 });

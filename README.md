@@ -1,6 +1,6 @@
 # 合肥惊魂夜
 
-基于 Three.js + Electron 的 3D 1v4 非对称追逃游戏。当前版本 **1.1.0**，联机协议 **37**；正式分发版本从 1.0.0 起编号。
+基于 Three.js + Electron 的 3D 1v4 非对称追逃游戏。当前版本 **1.2.0**，联机协议 **38**；正式分发版本从 1.0.0 起编号。
 
 开发和发布仓库：[galaxy-of-homos/hefei-night](https://github.com/galaxy-of-homos/hefei-night)。导入源码来源：[SongYuYang114/hefei-night-public](https://github.com/SongYuYang114/hefei-night-public)。
 
@@ -23,7 +23,7 @@ npm run test:game       # 地图、交通及现有玩法回归
 npm run test:launcher   # Electron 登录器与游戏启动验证
 ```
 
-新地图实机与双端 P2P 验证：`npx electron tools/test-road-map-game.cjs`（需要 OpenSSL 生成临时本地测试证书，输出在仓库外 `../road-map-game/`）。
+新地图实机与双端 P2P 验证：`npx electron tools/test-road-map-game.cjs`（需要 OpenSSL 生成临时本地测试证书，输出在仓库外 `../road-map-120-game/`）。
 
 生成 Windows 便携版：
 
@@ -35,6 +35,7 @@ npm run build
 
 ## 游戏内容
 
+- 合肥车道商铺：老乡鸡、麦当劳、肯德基、必胜客、逼养的火鸡面；楼上广告牌「星星大战9舔性者撅起」。道路两侧有栅栏，两条斑马线对应四处缺口；宋雨杨（经典）驾驶合肥车技可撞飞过往车辆。
 - 新地图「合肥车道」：中央双向四车道，两侧夜市街区，七台分散电机，两个大楼底层逃脱通道。道路车辆撞人会击飞到街边并眩晕 3 秒；普通哈基米会追车，被碾压后压扁 10 秒。大厅可切回原有「雾夜庄园」。
 
 - 七名求生者：白给、2980、猪脸、宋玉莹、长腿猪脸、欧比旺、Olo。
@@ -53,6 +54,7 @@ WASD 移动，鼠标转动视角，滚轮缩放；Q 技能，E 道具，F 交互
 ## 文档
 
 - [版本管理与分发 SOP](SOP.md)
+- [1.2.0 商铺、栅栏与撞飞车辆](docs/releases/1.2.0.md)
 - [1.1.0 合肥车道更新说明](docs/releases/1.1.0.md)
 - [1.0.0 更新说明](docs/releases/1.0.0.md)
 - [文档索引与历史资料](docs/README.md)

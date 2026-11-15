@@ -1,3 +1,4 @@
+import {ROAD_CROSSINGS,ROAD_FENCE_X} from './road-traffic.mjs';
 import {stepCatKick} from './cat-kick.mjs';
 import {LIMIT,distance,blocked,lineClear,move} from './core.mjs';
 import {immuneToNegative} from './vr-hunter.mjs';
@@ -58,7 +59,7 @@ export function repelCarCats(hits,cats,fights,obstacles=[],random=Math.random){c
 }
 // The host owns encounters, timers and hits. Guests only render these snapshots.
 export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.random,traffic=[]){
- const events=[];let left=Math.max(0,dt);
+ const events=[],sightObstacles=obstacles.filter(o=>!o.roadFence);let left=Math.max(0,dt);
  while(left>1e-7){const step=Math.min(.04,left);left-=step;
   for(const cat of cats){cat.cooldown=Math.max(0,cat.cooldown-step);cat.reactionCooldown=Math.max(0,(cat.reactionCooldown||0)-step);cat.scratchCooldown=Math.max(0,(cat.scratchCooldown||0)-step);
    if(cat.phase==='kicked'){stepCatKick(cat,step,obstacles);continue;}
@@ -80,8 +81,8 @@ export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.rando
    }
    else if(cat.phase==='warning'||cat.phase==='recoil'){cat.moving=false;cat.phaseTime=Math.max(0,cat.phaseTime-step);const target=cat.phase==='warning'?actors.find(a=>(a.id??4)===cat.focusId&&a.state==='active'&&!(a.invisible>0)&&lineClear(cat,a,obstacles)):null;if(target)cat.angle=Math.atan2(target.x-cat.x,target.z-cat.z);if(cat.phaseTime<=1e-7)Object.assign(cat,{phase:'roaming',phaseTime:0,target:null,focusId:null});}
    else if(cat.phase==='roaming'){
-    const vehicle=!cat.legendary&&traffic.filter(c=>!c.lift&&distance(cat,c)<12&&lineClear(cat,c,obstacles)).sort((a,b)=>distance(cat,a)-distance(cat,b))[0];
-    if(vehicle){cat.target={x:vehicle.x,z:vehicle.z+vehicle.direction*.8};cat.chaseCar=vehicle.id;}else cat.chaseCar=null;
+    const vehicle=!cat.legendary&&traffic.filter(c=>!c.lift&&distance(cat,c)<12&&lineClear(cat,c,sightObstacles)).sort((a,b)=>distance(cat,a)-distance(cat,b))[0];
+    if(vehicle){cat.target={x:vehicle.x,z:vehicle.z+vehicle.direction*.8};cat.chaseCar=vehicle.id;if(!lineClear(cat,cat.target,obstacles)&&Math.abs(cat.x)>ROAD_FENCE_X-.7){const z=ROAD_CROSSINGS.reduce((a,b)=>Math.abs(a-cat.z)<Math.abs(b-cat.z)?a:b),side=Math.sign(cat.x);cat.target={x:side*(ROAD_FENCE_X+(Math.abs(cat.z-z)<.65?-1.2:1.2)),z};}}else cat.chaseCar=null;
     walk(cat,step,obstacles,random);
    }else cat.moving=false;
   }
