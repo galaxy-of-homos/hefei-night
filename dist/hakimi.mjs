@@ -57,7 +57,7 @@ export function repelCarCats(hits,cats,fights,obstacles=[],random=Math.random){c
  for(const cat of defenders)Object.assign(cat,{phase:'recoil',phaseTime:.7,moving:false,fightId:null,target:null,cooldown:CAT_PEACE_SECONDS,reactionCooldown:LEGENDARY_REACTION_COOLDOWN});return {cats:[...defenders],departed};
 }
 // The host owns encounters, timers and hits. Guests only render these snapshots.
-export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.random){
+export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.random,traffic=[]){
  const events=[];let left=Math.max(0,dt);
  while(left>1e-7){const step=Math.min(.04,left);left-=step;
   for(const cat of cats){cat.cooldown=Math.max(0,cat.cooldown-step);cat.reactionCooldown=Math.max(0,(cat.reactionCooldown||0)-step);cat.scratchCooldown=Math.max(0,(cat.scratchCooldown||0)-step);
@@ -79,7 +79,11 @@ export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.rando
     if(cat.phaseTime<=1e-7)Object.assign(cat,{phase:'roaming',phaseTime:0,target:null,focusId:null});
    }
    else if(cat.phase==='warning'||cat.phase==='recoil'){cat.moving=false;cat.phaseTime=Math.max(0,cat.phaseTime-step);const target=cat.phase==='warning'?actors.find(a=>(a.id??4)===cat.focusId&&a.state==='active'&&!(a.invisible>0)&&lineClear(cat,a,obstacles)):null;if(target)cat.angle=Math.atan2(target.x-cat.x,target.z-cat.z);if(cat.phaseTime<=1e-7)Object.assign(cat,{phase:'roaming',phaseTime:0,target:null,focusId:null});}
-   else if(cat.phase==='roaming')walk(cat,step,obstacles,random);else cat.moving=false;
+   else if(cat.phase==='roaming'){
+    const vehicle=!cat.legendary&&traffic.filter(c=>!c.lift&&distance(cat,c)<12&&lineClear(cat,c,obstacles)).sort((a,b)=>distance(cat,a)-distance(cat,b))[0];
+    if(vehicle){cat.target={x:vehicle.x,z:vehicle.z+vehicle.direction*.8};cat.chaseCar=vehicle.id;}else cat.chaseCar=null;
+    walk(cat,step,obstacles,random);
+   }else cat.moving=false;
   }
   for(let i=fights.length-1;i>=0;i--){const fight=fights[i],pair=fight.catIds.map(id=>cats.find(c=>c.id===id));
    if(pair.some(c=>!c||c.phase==='flattened')){for(const cat of pair.filter(c=>c&&c.phase!=='flattened'))Object.assign(cat,{phase:'roaming',fightId:null,cooldown:CAT_PEACE_SECONDS});events.push({type:'depart',fight});fights.splice(i,1);continue;}

@@ -1,14 +1,14 @@
 import {PeerRoom} from './p2p.mjs';
 import {encodePacket,decodePacket,privateSnapshot} from './p2p-codec.mjs';
 import {DIRECT_ICE_SERVERS,collectCandidates,candidateSummary,connectionDiagnosis} from './direct-connect.mjs';
-export const DIRECT_PROTOCOL=36;
+export const DIRECT_PROTOCOL=37;
 const now=()=>performance.now(),clone=v=>JSON.parse(JSON.stringify(v));
 const uid=()=>crypto.randomUUID(),nameOf=v=>String(v||'玩家').replace(/[\u0000-\u001f<>]/g,'').slice(0,16),validId=v=>typeof v==='string'&&/^[a-zA-Z0-9-]{8,64}$/.test(v);
 async function pack(value){const bytes=await encodePacket(value);return 'HFY1.'+btoa(Array.from(bytes,b=>String.fromCharCode(b)).join('')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 async function unpack(code,type){
  const text=String(code||'').replace(/\s+/g,'');if(text.length>100000||!/^HFY1\.[a-zA-Z0-9_-]+$/.test(text))throw Error('请粘贴完整的 HFY1. 开头的连接信息。');
  let value;try{const raw=atob(text.slice(5).replace(/-/g,'+').replace(/_/g,'/'));value=await decodePacket(Uint8Array.from(raw,c=>c.charCodeAt(0)));}catch{throw Error('连接信息损坏，请重新复制。');}
- if(value?.protocol!==DIRECT_PROTOCOL||value.type!==type||!validId(value.roomId)||!validId(value.hostId)||!validId(value.guestId)||!validId(value.generation)||typeof value.sdp!=='string'||value.sdp.length>32768)throw Error('连接信息或游戏版本不一致，请双方使用 v1.0.0。');return value;
+ if(value?.protocol!==DIRECT_PROTOCOL||value.type!==type||!validId(value.roomId)||!validId(value.hostId)||!validId(value.guestId)||!validId(value.generation)||typeof value.sdp!=='string'||value.sdp.length>32768)throw Error('连接信息或游戏版本不一致，请双方使用 v1.1.0。');return value;
 }
 export class DirectRoom extends PeerRoom{
  constructor({deliver,onStatus=()=>{},...options}={}){
@@ -99,7 +99,7 @@ export class DirectRoom extends PeerRoom{
   if(m.kind==='leave'&&this.host){this.removePlayer(p.id);return;}
   if(!this.host&&p.id===this.room?.hostId){
    if(m.kind==='roster'){if(this.validRoster(m.room)){this.admitted=true;this.room=clone(m.room);this.emit(clone(this.room));}return;}
-   if(m.kind==='start'&&Number.isSafeInteger(m.match)&&m.match>this.match&&Number.isInteger(m.spawnSeed)){const start={type:'start',match:m.match,spawnSeed:m.spawnSeed,difficulty:['easy','normal','hard'].includes(m.difficulty)?m.difficulty:'normal'};super.observe(start);this.emit(start);return;}
+   if(m.kind==='start'&&Number.isSafeInteger(m.match)&&m.match>this.match&&Number.isInteger(m.spawnSeed)){const start={type:'start',match:m.match,spawnSeed:m.spawnSeed,mapId:m.mapId==='manor'?'manor':'hefei-road',difficulty:['easy','normal','hard'].includes(m.difficulty)?m.difficulty:'normal'};super.observe(start);this.emit(start);return;}
    if(m.kind==='end'&&m.match===this.match&&this.playing&&Array.isArray(m.state?.survivors)&&m.state.survivors.length===4&&['hunter','survivor','draw'].includes(m.result)){this.emit({type:'snapshot',match:this.match,state:m.state});const result={type:'result',result:m.result};super.observe(result);this.emit(result);return;}
    if(m.kind==='lobby'){super.observe({type:'lobby'});this.emit({type:'lobby'});return;}
    if(m.kind==='left'){this.emit({type:'left',id:m.id,slot:m.slot});return;}
@@ -116,7 +116,7 @@ export class DirectRoom extends PeerRoom{
   if(!this.room)return true;
   if(['select','ready'].includes(message.type)){if(this.host)this.command(this.id,message);else this.reliable(this.peers.get(this.room.hostId),{kind:'lobby-command',message});return true;}
   if(message.type==='start'&&this.host){
-   if(!this.canStart()){this.error('请等待所有玩家完成 P2P 直连并准备。');return true;}this.cancelInvitations();const start={type:'start',match:this.match+1,spawnSeed:crypto.getRandomValues(new Uint32Array(1))[0],difficulty:['easy','normal','hard'].includes(message.difficulty)?message.difficulty:'normal'};
+   if(!this.canStart()){this.error('请等待所有玩家完成 P2P 直连并准备。');return true;}this.cancelInvitations();const start={type:'start',match:this.match+1,spawnSeed:crypto.getRandomValues(new Uint32Array(1))[0],mapId:message.mapId==='manor'?'manor':'hefei-road',difficulty:['easy','normal','hard'].includes(message.difficulty)?message.difficulty:'normal'};
    this.room.phase='playing';this.publish();super.observe(start);for(const p of this.room.players)if(p.id!==this.id)this.reliable(this.peers.get(p.id),{kind:'start',...start});this.emit(start);return true;
   }
   if(message.type==='lobby'&&this.host){this.room.phase='lobby';this.room.players.forEach(p=>p.ready=false);super.observe({type:'lobby'});for(const p of this.room.players)if(p.id!==this.id)this.reliable(this.peers.get(p.id),{kind:'lobby'});this.publish();this.emit({type:'lobby'});return true;}

@@ -27,5 +27,5 @@ const result=vm.runInContext(`(()=>{
  back();start(791);const reset=current().item===null&&current().itemQ===null;back();return {blockedOrdinary,usedQ,quick,noTarget,noRemote,usedE,qExhaust,replicated,aiQuickRescue,reset};
 })()`,context);
 for(const [k,v]of Object.entries(result))assert(v,k);
-const report={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:36,chestsFillEThenQ:true,fullTwoSlotsRejectChest:true,queuedRewardsFillFreeSlot:true,bothSlotsFilterForbiddenLoot:true,ordinarySurvivorsKeepOneSlot:true,opaqueAppearanceIsolatedAndIdempotent:true,...result};
+const report={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:37,chestsFillEThenQ:true,fullTwoSlotsRejectChest:true,queuedRewardsFillFreeSlot:true,bothSlotsFilterForbiddenLoot:true,ordinarySurvivorsKeepOneSlot:true,opaqueAppearanceIsolatedAndIdempotent:true,...result};
 fs.writeFileSync(new URL('../../olo-inventory-unit.json',import.meta.url),JSON.stringify(report,null,2));console.log(report);
