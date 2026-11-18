@@ -1,14 +1,14 @@
 import {PeerRoom} from './p2p.mjs';
 import {encodePacket,decodePacket,privateSnapshot} from './p2p-codec.mjs';
 import {DIRECT_ICE_SERVERS,collectCandidates,candidateSummary,connectionDiagnosis} from './direct-connect.mjs';
-export const DIRECT_PROTOCOL=38;
+export const DIRECT_PROTOCOL=39;
 const now=()=>performance.now(),clone=v=>JSON.parse(JSON.stringify(v));
 const uid=()=>crypto.randomUUID(),nameOf=v=>String(v||'玩家').replace(/[\u0000-\u001f<>]/g,'').slice(0,16),validId=v=>typeof v==='string'&&/^[a-zA-Z0-9-]{8,64}$/.test(v);
 async function pack(value){const bytes=await encodePacket(value);return 'HFY1.'+btoa(Array.from(bytes,b=>String.fromCharCode(b)).join('')).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 async function unpack(code,type){
  const text=String(code||'').replace(/\s+/g,'');if(text.length>100000||!/^HFY1\.[a-zA-Z0-9_-]+$/.test(text))throw Error('请粘贴完整的 HFY1. 开头的连接信息。');
  let value;try{const raw=atob(text.slice(5).replace(/-/g,'+').replace(/_/g,'/'));value=await decodePacket(Uint8Array.from(raw,c=>c.charCodeAt(0)));}catch{throw Error('连接信息损坏，请重新复制。');}
- if(value?.protocol!==DIRECT_PROTOCOL||value.type!==type||!validId(value.roomId)||!validId(value.hostId)||!validId(value.guestId)||!validId(value.generation)||typeof value.sdp!=='string'||value.sdp.length>32768)throw Error('连接信息或游戏版本不一致，请双方使用 v1.2.0。');return value;
+ if(value?.protocol!==DIRECT_PROTOCOL||value.type!==type||!validId(value.roomId)||!validId(value.hostId)||!validId(value.guestId)||!validId(value.generation)||typeof value.sdp!=='string'||value.sdp.length>32768)throw Error('连接信息或游戏版本不一致，请双方使用 v1.3.0。');return value;
 }
 export class DirectRoom extends PeerRoom{
  constructor({deliver,onStatus=()=>{},...options}={}){

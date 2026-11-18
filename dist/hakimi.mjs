@@ -1,4 +1,4 @@
-import {ROAD_CROSSINGS,ROAD_FENCE_X} from './road-traffic.mjs';
+import {ROAD_CROSSINGS,ROAD_FENCE_X,stepTrafficNpc,TRAFFIC_NPC_FIELDS} from './road-traffic.mjs';
 import {stepCatKick} from './cat-kick.mjs';
 import {LIMIT,distance,blocked,lineClear,move} from './core.mjs';
 import {immuneToNegative} from './vr-hunter.mjs';
@@ -61,7 +61,7 @@ export function repelCarCats(hits,cats,fights,obstacles=[],random=Math.random){c
 export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.random,traffic=[]){
  const events=[],sightObstacles=obstacles.filter(o=>!o.roadFence);let left=Math.max(0,dt);
  while(left>1e-7){const step=Math.min(.04,left);left-=step;
-  for(const cat of cats){cat.cooldown=Math.max(0,cat.cooldown-step);cat.reactionCooldown=Math.max(0,(cat.reactionCooldown||0)-step);cat.scratchCooldown=Math.max(0,(cat.scratchCooldown||0)-step);
+  for(const cat of cats){if(stepTrafficNpc(cat,step,obstacles))continue;cat.cooldown=Math.max(0,cat.cooldown-step);cat.reactionCooldown=Math.max(0,(cat.reactionCooldown||0)-step);cat.scratchCooldown=Math.max(0,(cat.scratchCooldown||0)-step);
    if(cat.phase==='kicked'){stepCatKick(cat,step,obstacles);continue;}
    if(cat.phase==='flattened'){cat.moving=false;cat.phaseTime=Math.max(0,cat.phaseTime-step);if(cat.phaseTime<=1e-7){Object.assign(cat,{phase:'roaming',phaseTime:0,cooldown:CAT_PEACE_SECONDS,target:null});events.push({type:'recover',cat});}}
    else if(cat.phase==='scratching'){
@@ -101,13 +101,13 @@ export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.rando
     events.push({type:'stun',fight,actor});
    }
   }
-  for(const cat of cats)if((cat.legendary&&['roaming','warning'].includes(cat.phase))||(!cat.legendary&&cat.phase==='roaming'&&cat.reactionCooldown<=0)){
+  for(const cat of cats)if(!(cat.trafficStun>0)&&((cat.legendary&&['roaming','warning'].includes(cat.phase))||(!cat.legendary&&cat.phase==='roaming'&&cat.reactionCooldown<=0))){
    const target=actors.filter(a=>(cat.legendary||a.isVRPhantom)&&a.state==='active'&&!(a.invisible>0)&&distance(cat,a)<=LEGENDARY_SIGHT_RANGE&&lineClear(cat,a,obstacles)).sort((a,b)=>distance(cat,a)-distance(cat,b))[0];
    if(target&&!target.isVRPhantom&&cat.legendary&&cat.scratchCooldown<=0&&distance(cat,target)<=LEGENDARY_SCRATCH_RANGE){Object.assign(cat,{phase:'scratching',phaseTime:LEGENDARY_SCRATCH_SECONDS,moving:false,target:null,focusId:target.id??4,scratchSerial:(cat.scratchSerial||0)+1,scratchStep:0,scratchConnected:false,scratchCooldown:LEGENDARY_REACTION_COOLDOWN,reactionCooldown:LEGENDARY_REACTION_COOLDOWN,angle:Math.atan2(target.x-cat.x,target.z-cat.z)});}
    else if(target&&cat.phase==='roaming'&&cat.reactionCooldown<=0){Object.assign(cat,{phase:'warning',phaseTime:LEGENDARY_WARNING_SECONDS,moving:false,target:null,focusId:target.id??4,reactionCooldown:LEGENDARY_REACTION_COOLDOWN,angle:Math.atan2(target.x-cat.x,target.z-cat.z)});events.push({type:'hiss',fight:cat});}
   }
-  for(let i=0;i<cats.length;i++){const a=cats[i];if(a.phase!=='roaming'||a.cooldown>0)continue;
-   for(const b of cats.slice(i+1)){if(b.phase!=='roaming'||b.cooldown>0||distance(a,b)>CAT_ENCOUNTER_RANGE||distance(a,b)<.1||!lineClear(a,b,obstacles))continue;
+  for(let i=0;i<cats.length;i++){const a=cats[i];if(a.trafficStun>0||a.phase!=='roaming'||a.cooldown>0)continue;
+   for(const b of cats.slice(i+1)){if(b.trafficStun>0||b.phase!=='roaming'||b.cooldown>0||distance(a,b)>CAT_ENCOUNTER_RANGE||distance(a,b)<.1||!lineClear(a,b,obstacles))continue;
     const center={x:(a.x+b.x)/2,z:(a.z+b.z)/2};if(blocked(center.x,center.z,obstacles,.35))continue;
     const serial=Math.max(a.encounters||0,b.encounters||0)+1,id=`${a.id}-${b.id}-${serial}`,windup=5+random()*5;
     const fight={id,...center,catIds:[a.id,b.id],phase:'hissing',phaseTime:windup,windup,hitIds:[]};fights.push(fight);
@@ -117,5 +117,9 @@ export function stepCats(cats,fights,dt,actors=[],obstacles=[],random=Math.rando
   }
  }return events;
 }
-export const catState=cat=>Object.fromEntries(['id','x','z','angle','coat','legendary','reactionCooldown','scratchCooldown','scratchSerial','scratchStep','focusId','phase','phaseTime','travel','moving','cooldown','fightId','kickVX','kickVZ','kickFlatTime','kickDuration','kickHeight','kickPower','kickSerial'].map(k=>[k,cat[k]]));
-export const catFightState=f=>Object.fromEntries(['id','x','z','catIds','phase','phaseTime','windup'].map(k=>[k,f[k]]));
+export const catState=cat=>Object.fromEntries([...TRAFFIC_NPC_FIELDS,'id','x','z','angle','coat','legendary','reactionCooldown','scratchCooldown','scratchSerial','scratchStep','focusId','phase','phaseTime','travel','moving','cooldown','fightId','kickVX','kickVZ','kickFlatTime','kickDuration','kickHeight','kickPower','kickSerial'].map(k=>[k,cat[k]]));
+export const catFightState=f=>Object.fromEntries([...TRAFFIC_NPC_FIELDS,'id','x','z','catIds','phase','phaseTime','windup'].map(k=>[k,f[k]]));
+
+export function interruptTrafficCats(hits,cats,fights){
+ const departed=[];for(let i=fights.length-1;i>=0;i--){const f=fights[i];if(!hits.some(c=>f.catIds.includes(c.id)))continue;for(const c of cats.filter(c=>f.catIds.includes(c.id)))Object.assign(c,{phase:'roaming',phaseTime:0,fightId:null,target:null,cooldown:12,moving:false});departed.push(f);fights.splice(i,1);}for(const c of hits)Object.assign(c,{phase:'roaming',phaseTime:0,fightId:null,target:null,moving:false,cooldown:12});return departed;
+}

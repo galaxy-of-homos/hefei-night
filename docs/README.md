@@ -5,6 +5,7 @@
 - [玩家指南](PLAYER-GUIDE.md)
 - [联机指南](MULTIPLAYER.md)
 - [版本管理与分发 SOP](../SOP.md)
+- [1.3.0 混乱车流与飞车砸击](releases/1.3.0.md)
 - [1.0.0 更新说明](releases/1.0.0.md)
 - [第三方素材与许可](THIRD-PARTY.md)
 

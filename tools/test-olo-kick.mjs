@@ -30,5 +30,5 @@ const integrated=vm.runInContext(`(()=>{
  Object.assign(a,{x:0,z:14,path:[],repath:0,destination:null});const before=a.z;follow(a,{x:a.x,z:a.z+10},3.65,.1);const aiDoubleSpeed=a.z-before>.72;
  back();return {noRescue,noRescueTarget,ordinaryRescue,aiDoubleSpeed};
 })()`,context);for(const [k,v]of Object.entries(integrated))assert(v,k);
-const result={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:38,baseSpeedMetersPerSecond:7.4,hostAndPredictionSpeedsMatch:true,ordinarySpeedUnchanged:true,kicksOrdinaryAndLegendaryCats:true,flightAndLanding:true,cannotKickAirborneCat:true,wallAndRangeChecks:true,interruptsAllFightPhases:true,flattenedCatTimerPreserved:true,...integrated};
+const result={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:39,baseSpeedMetersPerSecond:7.4,hostAndPredictionSpeedsMatch:true,ordinarySpeedUnchanged:true,kicksOrdinaryAndLegendaryCats:true,flightAndLanding:true,cannotKickAirborneCat:true,wallAndRangeChecks:true,interruptsAllFightPhases:true,flattenedCatTimerPreserved:true,...integrated};
 fs.writeFileSync(new URL('../../olo-kick-unit.json',import.meta.url),JSON.stringify(result,null,2));console.log(result);

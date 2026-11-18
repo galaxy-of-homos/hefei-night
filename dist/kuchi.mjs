@@ -1,3 +1,4 @@
+import {stepTrafficNpc,TRAFFIC_NPC_FIELDS} from './road-traffic.mjs';
 import {isOlo} from './olo.mjs';
 import {LIMIT,blocked,lineClear,findPath,distance} from './core.mjs';
 import {jumpGrounded} from './jump.mjs';
@@ -16,7 +17,7 @@ function pickRoute(dog,obstacles,random){
  }
  dog.path=[];dog.target=null;
 }
-export function stepKuchi(dog,dt,obstacles=[],random=Math.random){
+export function stepKuchi(dog,dt,obstacles=[],random=Math.random){if(stepTrafficNpc(dog,dt,obstacles))return [];
  const drops=[];let left=Math.max(0,dt);while(left>1e-7){
   const step=Math.min(.02,left,dog.phaseTime);dog.phaseTime-=step;left-=step;
   if(dog.phase==='roaming'){
@@ -50,4 +51,4 @@ export function stepMailisu(traps,survivors,obstacles=[],previous=new Map()){
  }return hits;
 }
 export const kuchiSpeedFactor=a=>a.kuchiSlow>0?KUCHI_SLOW_FACTOR:1;
-export const kuchiState=dog=>dog?Object.fromEntries(['x','z','angle','phase','phaseTime','moving','travel','drops'].map(k=>[k,dog[k]])):null;
+export const kuchiState=dog=>dog?Object.fromEntries([...TRAFFIC_NPC_FIELDS,'x','z','angle','phase','phaseTime','moving','travel','drops'].map(k=>[k,dog[k]])):null;

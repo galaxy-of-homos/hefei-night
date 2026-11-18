@@ -55,7 +55,7 @@ export class MotionTrack{
  constructor(delay=.10){this.delay=delay;this.samples=[];this.clock=null;this.received=0;}
  push(time,pose,now){
   const last=this.samples.at(-1);if(last&&time<=last.time)return;
-  const snap=!last||pose.trafficSerial!==last.pose.trafficSerial||pose.state!==last.pose.state||pose.kickSerial!==last.pose.kickSerial||Math.hypot(pose.x-last.pose.x,pose.z-last.pose.z)>Math.max(3,(pose.driving||last.pose.driving?60:20)*(time-last.time))||pose.launchTime>(last.pose.launchTime||0)+.15||pose.lift>(last.pose.lift||0)+.15;
+  const snap=!last||pose.trafficSerial!==last.pose.trafficSerial||pose.serial!==last.pose.serial||pose.state!==last.pose.state||pose.kickSerial!==last.pose.kickSerial||Math.hypot(pose.x-last.pose.x,pose.z-last.pose.z)>Math.max(3,(pose.driving||last.pose.driving?60:20)*(time-last.time))||pose.launchTime>(last.pose.launchTime||0)+.15||pose.lift>(last.pose.lift||0)+.15;
   if(snap){this.samples=[];this.clock=time-this.delay;}
   this.samples.push({time,pose:{...pose}});if(this.samples.length>32)this.samples.shift();this.received=now;
  }
