@@ -17,7 +17,7 @@ for(const id of [0,6]){
 }
 let legendary=0;for(let i=0;i<10000;i++){
  const rng=()=>i/10000,item=loot.rollActorLoot(actor(),rng);assert(!['egg','hotpot'].includes(item));if(item==='mushroom')legendary++;
-}assert.equal(legendary,500);assert.equal(loot.rollActorLoot(actor(0),()=>0),'egg');assert.equal(loot.rollActorLoot(actor(0),()=>.4),'hotpot');
+}assert.equal(legendary,800);assert.equal(loot.rollActorLoot(actor(0),()=>0),'egg');assert.equal(loot.rollActorLoot(actor(0),()=>.5),'hotpot');
 for(const forbidden of ['egg','hotpot']){const a=actor(),chest={x:0,z:0,progress:0,opened:false,loot:forbidden};assert(loot.advanceChest(a,chest,10,[],()=>.5));assert.equal(a.item,'yzm');}
 const profile=randomCatKick(()=>1);assert(Math.abs(profile.height-320)<1e-8);assert(Math.abs(profile.seconds-6)<1e-8);assert.equal(profile.speed,240);
 assert.equal(randomCatKick(()=>0).power,.5);assert.equal(randomCatKick(()=>.18).power,1);
@@ -41,5 +41,5 @@ updateGeneratorProjections([g],camera,1,'playing');assert(!p.root.visible);g.pro
 for(const mode of ['menu','result']){updateGeneratorProjections([g],camera,3,mode);assert(!p.root.visible);}
 const hash=b=>crypto.createHash('sha256').update(b).digest('hex'),asset=fs.readFileSync(new URL('../dist/assets/generator-projection.jpg',import.meta.url));
 assert.equal(hash(asset),'56290aac4322089b48cbec37362d1a24b3ba46ffa822795613f95fdc3e4ee500');
-const result={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:36,threeSuccessfulDogKicksGrantOneItem:true,fullInventoryQueuesRewards:true,oloChestAndRewardExcludeEggAndHealing:true,legendaryRatePreserved:true,randomKickMaxHeight:320,randomKickMaxDuration:6,randomForceHostSnapshot:true,extremeFlightStaysInsideMapAndLands:true,projectionOnlyAfterRepair:true,projectionBillboardsAndHidesAfterMatch:true,projectionRawAssetSHA256:hash(asset),...integrated};
+const result={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:40,threeSuccessfulDogKicksGrantOneItem:true,fullInventoryQueuesRewards:true,oloChestAndRewardExcludeEggAndHealing:true,legendaryRatePreserved:true,randomKickMaxHeight:320,randomKickMaxDuration:6,randomForceHostSnapshot:true,extremeFlightStaysInsideMapAndLands:true,projectionOnlyAfterRepair:true,projectionBillboardsAndHidesAfterMatch:true,projectionRawAssetSHA256:hash(asset),...integrated};
 fs.writeFileSync(new URL('../../dog-rewards-unit.json',import.meta.url),JSON.stringify(result,null,2));console.log(result);

@@ -1,5 +1,6 @@
 import {isOlo} from './olo.mjs';
 import {carBlocked,clamp,lineClear} from './core.mjs';
+import {ramTraffic,trafficKind} from './road-traffic.mjs';
 export const DRIVE_SECONDS=5,DRIVE_COOLDOWN=10,DRIVE_SPEED=10,DRIVE_WALL_BOOST=5,DRIVE_TURN_RATE=2.4;
 export const CAR_AIR_SECONDS=1.8,CAR_AIR_HEIGHT=7.5,CAR_CRASH_STUN=5;
 export function resetDrive(a){Object.assign(a,{driving:false,drivePhase:'none',driveTime:0,driveAirTime:0,driveAirTotal:0,driveVX:0,driveVZ:0,driveSteer:0,driveTravel:0,driveBounces:0,driveWallBoost:false,driveLastX:a.x,driveLastZ:a.z});}
@@ -9,8 +10,8 @@ export const driveSteer=input=>clamp((input.keys?.a?1:0)-(input.keys?.d?1:0)-(in
 export const driveHeight=a=>a.driving&&a.drivePhase==='airborne'?Math.sin(Math.PI*clamp(1-a.driveAirTime/CAR_AIR_SECONDS,0,1))*CAR_AIR_HEIGHT:0;
 export const driveSpin=a=>a.driving&&a.drivePhase==='airborne'?clamp(1-a.driveAirTime/CAR_AIR_SECONDS,0,1)*Math.PI*4:0;
 export function launchDrivenCar(a,random=Math.random){if(!a.driving||a.drivePhase!=='driving')return false;const angle=random()*Math.PI*2,range=20+random()*8;Object.assign(a,{drivePhase:'airborne',driveTime:0,driveAirTime:CAR_AIR_SECONDS,driveAirTotal:CAR_AIR_SECONDS,driveVX:Math.sin(angle)*range/CAR_AIR_SECONDS,driveVZ:Math.cos(angle)*range/CAR_AIR_SECONDS,launchTime:0,moving:false,swing:0,hitDelay:0,stun:Math.max(a.stun||0,CAR_AIR_SECONDS)});return true;}
-export function stepDrivenCar(a,steer,dt,obstacles=[],targets=[],hitIds=new Set(),hazards=[],catTargets=[]){
- const result={hits:[],crushed:[],catHits:[],legendaryHits:[],bounces:0,landed:false,ended:false},catHitIds=new Set(),orderedCats=[...catTargets].sort((a,b)=>Number(!!b.cat.legendary)-Number(!!a.cat.legendary));if(!a.driving||dt<=0)return result;
+export function stepDrivenCar(a,steer,dt,obstacles=[],targets=[],hitIds=new Set(),hazards=[],catTargets=[],traffic=[]){
+ const result={hits:[],crushed:[],catHits:[],legendaryHits:[],trafficHits:[],trafficCounterHit:false,bounces:0,landed:false,ended:false},catHitIds=new Set(),orderedCats=[...catTargets].sort((a,b)=>Number(!!b.cat.legendary)-Number(!!a.cat.legendary));if(!a.driving||dt<=0)return result;
  if(a.drivePhase==='airborne'){
   let left=Math.min(dt,a.driveAirTime);while(left>1e-7){const step=Math.min(.008,left),dx=a.driveVX*step,dz=a.driveVZ*step;if(!carBlocked({...a,x:a.x+dx},obstacles))a.x+=dx;if(!carBlocked({...a,z:a.z+dz},obstacles))a.z+=dz;left-=step;}
   a.driveAirTime=Math.max(0,a.driveAirTime-dt);a.moving=false;if(a.driveAirTime<=1e-7){a.driveAirTime=0;a.driving=false;a.drivePhase='crashed';a.stun=Math.max(a.stun||0,CAR_CRASH_STUN);a.moving=false;result.landed=true;}return result;
@@ -42,6 +43,7 @@ export function stepDrivenCar(a,steer,dt,obstacles=[],targets=[],hitIds=new Set(
   }
   if(!carBlocked({...a,x:a.x+dx,z:a.z+dz},obstacles)){a.x+=dx;a.z+=dz;a.driveTravel=(a.driveTravel||0)+Math.hypot(dx,dz);}
   const fx=Math.sin(a.angle),fz=Math.cos(a.angle);
+  for(const vehicle of traffic){const kind=trafficKind(vehicle);if(vehicle.phase!=='wreck'&&!(vehicle.lift>0)&&carBlocked(a,[{x:vehicle.x,z:vehicle.z,w:kind.halfWidth*2,d:kind.halfLength*2}])&&lineClear(a,vehicle,obstacles)){if(ramTraffic(a,vehicle)==='driver'){result.trafficCounterHit=true;return result;}result.trafficHits.push(vehicle);}}
   for(const target of orderedCats){if(target.cat.phase==='flattened'||catHitIds.has(target.cat.id))continue;const x=target.x-a.x,z=target.z-a.z;if(Math.abs(x*fz-z*fx)<=.95+target.radius&&Math.abs(x*fx+z*fz)<=1.85+target.radius&&lineClear(a,target,obstacles)){catHitIds.add(target.cat.id);if(target.cat.legendary){launchDrivenCar(a);result.legendaryHits.push(target.cat);return result;}result.catHits.push(target.cat);}}
   for(const s of targets){if(isOlo(s)||s.state!=='active'||s.invincible>0||hitIds.has(s.id))continue;const x=s.x-a.x,z=s.z-a.z;if(Math.abs(x*fz-z*fx)<=1.3&&Math.abs(x*fx+z*fz)<=2.15&&lineClear(a,s,obstacles)){hitIds.add(s.id);result.hits.push(s);}}
   for(const hazard of hazards){if(!hazard.active||hazard.phase==='thrown'&&hazard.throwTime>.08)continue;const x=hazard.x-a.x,z=hazard.z-a.z;if(Math.abs(x*fz-z*fx)<=1.65&&Math.abs(x*fx+z*fz)<=2.45&&lineClear(a,hazard,obstacles)){launchDrivenCar(a);result.crushed.push(hazard);return result;}}

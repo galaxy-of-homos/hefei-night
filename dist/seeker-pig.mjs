@@ -1,3 +1,4 @@
+import {stepTrafficNpc,TRAFFIC_NPC_FIELDS} from './road-traffic.mjs';
 import {immuneToNegative} from './vr-hunter.mjs';
 import {distance,move,findPath,lineClear,blocked} from './core.mjs';
 import {launchDrivenCar} from './drive-car.mjs';
@@ -17,7 +18,7 @@ export function explodeSeekerPig(pig,actors,obstacles=[],random=Math.random,crus
  if(crushedCar&&!hits.includes(crushedCar)){launchDrivenCar(crushedCar,random);hits.push(crushedCar);}
  return {x:pig.x,z:pig.z,hits,crushed:!!crushedCar||hits.some(a=>a.driving&&a.drivePhase==='airborne')};
 }
-export function stepSeekerPig(pig,dt,actors,obstacles=[],random=Math.random){
+export function stepSeekerPig(pig,dt,actors,obstacles=[],random=Math.random){if(stepTrafficNpc(pig,dt,obstacles))return null;
  if(!pig.active)return null;let left=Math.max(0,dt);
  while(left>1e-7){const step=Math.min(.02,left);left-=step;pig.kuchiSlow=Math.max(0,pig.kuchiSlow-step);pig.repath-=step;
   if(pig.phase==='thrown'){const travel=Math.min(step,pig.throwTime)*PIG_THROW_DISTANCE/PIG_THROW_SECONDS;const moved=move(pig,Math.sin(pig.angle)*travel,Math.cos(pig.angle)*travel,obstacles);pig.travel+=moved;pig.throwTime=Math.max(0,pig.throwTime-step);if(!pig.throwTime){pig.phase='hunting';pig.repath=0;}continue;}
@@ -31,4 +32,4 @@ export function stepSeekerPig(pig,dt,actors,obstacles=[],random=Math.random){
   if(distance(pig,target)<1.05&&lineClear(pig,target,obstacles))return explodeSeekerPig(pig,actors,obstacles,random,target.driving&&target.drivePhase==='driving'?target:null);
  }return null;
 }
-export const seekerPigState=p=>Object.fromEntries(['id','ownerSlot','x','z','angle','phase','throwTime','active','moving','kuchiSlow','travel','targetSlot'].map(k=>[k,p[k]]));
+export const seekerPigState=p=>Object.fromEntries([...TRAFFIC_NPC_FIELDS,'id','ownerSlot','x','z','angle','phase','throwTime','active','moving','kuchiSlow','travel','targetSlot'].map(k=>[k,p[k]]));

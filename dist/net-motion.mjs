@@ -1,4 +1,5 @@
 import {stepDrivenCar,driveSteer} from './drive-car.mjs';
+import {stepTrafficFlight} from './road-traffic.mjs';
 import {oloSpeedMultiplier} from './olo.mjs';
 import {move,clamp} from './core.mjs';
 import {consumeJumpInput} from './jump.mjs';
@@ -22,6 +23,7 @@ export function moveControlled(actor,input,dt,obstacles,isHunter=false){
 }
 function replayStep(actor,command,obstacles,isHunter,carObstacles=obstacles){
  moveControlled(actor,command.input,command.dt,actor.driving?carObstacles:obstacles,isHunter);
+  stepTrafficFlight(actor,command.dt,obstacles);
  for(const key of ['kickTime','dash','slow','kuchiSlow','jumpTime','jumpCooldown','swing','legRush','stun'])if(actor[key]>0)actor[key]=Math.max(0,actor[key]-command.dt);
 }
 export class LocalPrediction{
@@ -42,7 +44,7 @@ export class LocalPrediction{
    // Extrapolate only the estimated snapshot transit, rather than the whole ACK backlog.
    let lag=Math.min(.4,(this.rtt||0)/2000),commands=[];for(let i=this.pending.length-1;i>=0&&lag>0;i--){const c=this.pending[i],dt=Math.min(lag,c.dt);commands.unshift({...c,dt});lag-=dt;}for(const c of commands)replayStep(next,c,this.obstacles,true,this.carObstacles);
   }else{let lead=Math.max(0,Math.min(.6,authoritative.inputLead||0));for(const command of this.pending){const covered=Math.min(lead,command.dt);lead-=covered;if(command.dt-covered>1e-8)replayStep(next,{...command,dt:command.dt-covered},this.obstacles,this.isHunter,this.carObstacles);}}
-  const snap=!old||!this.lastAuth||authoritative.state!==this.lastAuth.state||(authoritative.shoeNpcId||0)!==(this.lastAuth.shoeNpcId||0)||Math.hypot(authoritative.x-this.lastAuth.x,authoritative.z-this.lastAuth.z)>Math.max(4,authoritative.driving?50*Math.max(0,(authoritative.inputClock||0)-(this.lastAuth.inputClock||0))+.5:4)||authoritative.launchTime>this.lastAuth.launchTime+.15||authoritative.drivePhase!==this.lastAuth.drivePhase;
+  const snap=!old||!this.lastAuth||authoritative.trafficSerial!==this.lastAuth.trafficSerial||authoritative.state!==this.lastAuth.state||(authoritative.shoeNpcId||0)!==(this.lastAuth.shoeNpcId||0)||Math.hypot(authoritative.x-this.lastAuth.x,authoritative.z-this.lastAuth.z)>Math.max(4,authoritative.driving?50*Math.max(0,(authoritative.inputClock||0)-(this.lastAuth.inputClock||0))+.5:4)||authoritative.launchTime>this.lastAuth.launchTime+.15||authoritative.drivePhase!==this.lastAuth.drivePhase;
   if(snap)this.error={x:0,z:0};else{this.error.x+=old.x-next.x;this.error.z+=old.z-next.z;if(Math.hypot(this.error.x,this.error.z)>2)this.error={x:0,z:0};}
   this.actor=next;this.lastAuth={...authoritative};
  }
@@ -53,7 +55,7 @@ export class MotionTrack{
  constructor(delay=.10){this.delay=delay;this.samples=[];this.clock=null;this.received=0;}
  push(time,pose,now){
   const last=this.samples.at(-1);if(last&&time<=last.time)return;
-  const snap=!last||pose.state!==last.pose.state||pose.kickSerial!==last.pose.kickSerial||Math.hypot(pose.x-last.pose.x,pose.z-last.pose.z)>Math.max(3,(pose.driving||last.pose.driving?60:20)*(time-last.time))||pose.launchTime>(last.pose.launchTime||0)+.15;
+  const snap=!last||pose.trafficSerial!==last.pose.trafficSerial||pose.serial!==last.pose.serial||pose.state!==last.pose.state||pose.kickSerial!==last.pose.kickSerial||Math.hypot(pose.x-last.pose.x,pose.z-last.pose.z)>Math.max(3,(pose.driving||last.pose.driving?60:20)*(time-last.time))||pose.launchTime>(last.pose.launchTime||0)+.15||pose.lift>(last.pose.lift||0)+.15;
   if(snap){this.samples=[];this.clock=time-this.delay;}
   this.samples.push({time,pose:{...pose}});if(this.samples.length>32)this.samples.shift();this.received=now;
  }
@@ -61,7 +63,7 @@ export class MotionTrack{
   const newest=this.samples.at(-1);if(!newest)return null;
   this.clock=Math.max(this.clock??newest.time,newest.time-this.delay);this.clock=Math.min(this.clock+dt,newest.time+Math.min(.10,Math.max(0,(now-this.received)/1000)));
   const target=Math.min(this.clock,newest.time+Math.min(.10,Math.max(0,(now-this.received)/1000)));
-  for(let i=1;i<this.samples.length;i++){const b=this.samples[i],a=this.samples[i-1];if(target<=b.time){const t=clamp((target-a.time)/(b.time-a.time),0,1);return {...b.pose,x:a.pose.x+(b.pose.x-a.pose.x)*t,z:a.pose.z+(b.pose.z-a.pose.z)*t,angle:angleLerp(a.pose.angle||0,b.pose.angle||0,t),...(a.pose.state==='kicked'&&b.pose.state==='kicked'?{phaseTime:a.pose.phaseTime+(b.pose.phaseTime-a.pose.phaseTime)*t}:{}),...(a.pose.jumpSerial===b.pose.jumpSerial?{jumpTime:(a.pose.jumpTime||0)+((b.pose.jumpTime||0)-(a.pose.jumpTime||0))*t}:{}),...(a.pose.drivePhase===b.pose.drivePhase&&b.pose.driveAirTime>0?{driveAirTime:a.pose.driveAirTime+(b.pose.driveAirTime-a.pose.driveAirTime)*t}:{})};}}
+  for(let i=1;i<this.samples.length;i++){const b=this.samples[i],a=this.samples[i-1];if(target<=b.time){const t=clamp((target-a.time)/(b.time-a.time),0,1);return {...b.pose,x:a.pose.x+(b.pose.x-a.pose.x)*t,z:a.pose.z+(b.pose.z-a.pose.z)*t,angle:angleLerp(a.pose.angle||0,b.pose.angle||0,t),...(a.pose.state==='kicked'&&b.pose.state==='kicked'?{phaseTime:a.pose.phaseTime+(b.pose.phaseTime-a.pose.phaseTime)*t}:{}),...(a.pose.lift>0&&b.pose.lift>0?{lift:a.pose.lift+(b.pose.lift-a.pose.lift)*t}:{}),...(a.pose.trafficSerial===b.pose.trafficSerial?{trafficFlight:(a.pose.trafficFlight||0)+((b.pose.trafficFlight||0)-(a.pose.trafficFlight||0))*t}:{}),...(a.pose.jumpSerial===b.pose.jumpSerial?{jumpTime:(a.pose.jumpTime||0)+((b.pose.jumpTime||0)-(a.pose.jumpTime||0))*t}:{}),...(a.pose.drivePhase===b.pose.drivePhase&&b.pose.driveAirTime>0?{driveAirTime:a.pose.driveAirTime+(b.pose.driveAirTime-a.pose.driveAirTime)*t}:{})};}}
   const previous=this.samples.at(-2);if(previous&&newest.pose.moving!==false&&newest.pose.state!=='captured'&&(newest.pose.stun||0)<=0){const interval=newest.time-previous.time,extra=clamp(target-newest.time,0,.10);let vx=(newest.pose.x-previous.pose.x)/interval,vz=(newest.pose.z-previous.pose.z)/interval;const speed=Math.hypot(vx,vz);const cap=newest.pose.driving?45:20;if(speed>cap){vx*=cap/speed;vz*=cap/speed;}return {...newest.pose,x:newest.pose.x+vx*extra,z:newest.pose.z+vz*extra};}
   return {...newest.pose};
  }

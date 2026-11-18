@@ -1,3 +1,4 @@
+import {stepTrafficNpc,TRAFFIC_NPC_FIELDS} from './road-traffic.mjs';
 import {blocked,distance,move,findPath,lineClear} from './core.mjs';
 import {immuneToNegative} from './vr-hunter.mjs';
 import {resetDrive} from './drive-car.mjs';
@@ -18,7 +19,7 @@ export function lockUnderShoe(actor,npc){
  npc.phase='holding';npc.holdTarget=redEyeActorId(actor);npc.holdTime=SHOE_HOLD_SECONDS;npc.caught.push(npc.holdTarget);npc.x=actor.x;npc.z=actor.z;npc.angle=actor.angle;npc.moving=false;
 }
 const clearRoute=(a,b,obs)=>{const count=Math.ceil(distance(a,b)/.2);for(let i=1;i<=count;i++){const f=i/count;if(blocked(a.x+(b.x-a.x)*f,a.z+(b.z-a.z)*f,obs,.5))return false;}return true;};
-export function stepRedEye(npc,dt,hunter,survivors,obstacles=[]){
+export function stepRedEye(npc,dt,hunter,survivors,obstacles=[]){if(stepTrafficNpc(npc,dt,obstacles))return [];
  if(!npc.active)return [];const events=[],actors=[hunter,...survivors];let left=Math.max(0,dt);
  while(left>1e-8&&npc.active){const step=Math.min(.02,left);left-=step;
   if(npc.phase==='holding'){
@@ -38,4 +39,4 @@ export function stepRedEye(npc,dt,hunter,survivors,obstacles=[]){
  }
  return events;
 }
-export const redEyeState=npc=>Object.fromEntries(['id','ownerSlot','x','z','angle','phase','active','invincible','moving','travel','holdTime','holdTarget'].map(k=>[k,npc[k]]));
+export const redEyeState=npc=>Object.fromEntries([...TRAFFIC_NPC_FIELDS,'id','ownerSlot','x','z','angle','phase','active','invincible','moving','travel','holdTime','holdTarget'].map(k=>[k,npc[k]]));

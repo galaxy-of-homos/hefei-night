@@ -18,7 +18,7 @@ import {DirectRoom,DIRECT_PROTOCOL} from '../dist/direct-room.mjs';
 
 const actor=(id,characterId=id,x=0,z=0)=>({id,characterId,x,z,angle:0,state:'active',hp:2,stun:0,blind:0,slow:0,kuchiSlow:0,invincible:0,launchTime:0,jumpTime:0,shoeTime:0,cooldown:0});
 const olo=()=>actor(2,6,0,2),normal=()=>actor(1,0,0,2),hunter=()=>({...actor(4,undefined,0,0),characterId:undefined,hunterCharacter:0});
-assert.equal(DIRECT_PROTOCOL,36);assert.equal(SURVIVOR_SKILLS[6].name,'被鸽');assert(SURVIVOR_SKILLS[6].passive);
+assert.equal(DIRECT_PROTOCOL,40);assert.equal(SURVIVOR_SKILLS[6].name,'被鸽');assert(SURVIVOR_SKILLS[6].passive);
 assert(!isOlo(actor(6,0)));assert(isOlo(olo()));assert(immuneToNegative(olo()));assert(!canRepair(olo()));assert(canRepair(normal()));
 assert.equal(useSurvivorSkill(olo(),hunter()).reason,'passive');assert.equal(laserCast({...olo(),vrTime:15,laserCooldown:0},0,[normal()]),null);
 assert.equal(hit(hunter(),[olo(),normal()],[]).characterId,0);
@@ -45,7 +45,7 @@ const integrated=vm.runInContext(`(()=>{
  back();return {damage,noCapture,noRepair,noRepairTarget,othersRepair,aiNoRepair};
 })()`,context);
 for(const [k,v] of Object.entries(integrated))assert(v,k);
-const report={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:36,
+const report={passed:true,version:JSON.parse(fs.readFileSync(new URL('../package.json',import.meta.url))).version,protocol:40,
  identityUsesCharacterNotSlot:true,passiveCannotBeActivated:true,allDamageSourcesBlocked:true,stunBlindSlowKnockbackAndShoeImmune:true,
  trapsPreservedWhenOloWalksOver:true,noObiwanTeleportOrAnchor:true,otherCharactersStillAffected:true,ignoredInHunterCaptureVictory:true,
  originalThreeEscapeVictoryPreserved:true,P2PAllowsSeventhSurvivor:true,...integrated};
