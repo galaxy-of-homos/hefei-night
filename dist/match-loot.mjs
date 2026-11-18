@@ -1,8 +1,10 @@
 import {HUNTER_WARNING_DISTANCE,LIMIT,blocked,distance,findPath} from './core.mjs?v=car-horizontal-1';
 import {isOlo} from './olo.mjs';
-export const CHEST_COUNT=5,CHEST_SECONDS=10,EGG='egg',EXHAUST='exhaust',HOT_POT='hotpot',SELF_RESCUE='yzm',FRIED_RICE='friedrice',WEIRD_MUSHROOM='mushroom',LEGENDARY_DROP_RATE=.05,MEAL_SECONDS=0;
+export const CHEST_COUNT=5,CHEST_SECONDS=10,CHEST_REFRESH_SECONDS=90,EGG='egg',EXHAUST='exhaust',HOT_POT='hotpot',SELF_RESCUE='yzm',FRIED_RICE='friedrice',WEIRD_MUSHROOM='mushroom',LEGENDARY_DROP_RATE=.08,MEAL_SECONDS=0;
 export const ITEMS={friedrice:{name:'蛋炒饭',hint:'无敌红眼女 · 追捕追杀者与宋玉莹 · 顶鞋底 15 秒'},mushroom:{name:'诡异香菇',rarity:'legendary',hint:'传奇 · 召唤同角色 AI 替身 · 受击一次消失'},egg:{name:'不可思议的蛋',hint:'重置技能冷却与次数'},exhaust:{name:'华莱！',hint:'尾气命中双方 · 失明 5 秒'},hotpot:{name:'火锅油条',hint:'脱离追杀者警告范围 · 瞬间回复一格生命'},yzm:{name:'yzm',hint:'被囚禁时按 E · 自救一次'}};
-export const rollChestLoot=(rng=Math.random)=>{const n=Math.max(0,Math.min(1,rng()));return n>=1-LEGENDARY_DROP_RATE?WEIRD_MUSHROOM:[EGG,EXHAUST,HOT_POT,SELF_RESCUE,FRIED_RICE][Math.min(4,Math.floor(n/(1-LEGENDARY_DROP_RATE)*5))];};
+export const CHEST_DROP_WEIGHTS=Object.freeze({[EGG]:21,[EXHAUST]:21,[HOT_POT]:21,[SELF_RESCUE]:21,[FRIED_RICE]:8,[WEIRD_MUSHROOM]:8});
+function weightedLoot(pool,random){const n=random(),total=pool.reduce((sum,[,weight])=>sum+weight,0);let value=(Number.isFinite(n)?Math.max(0,Math.min(1,n)):0)*total;for(const [item,weight] of pool){if(value<weight)return item;value-=weight;}return pool.at(-1)[0];}
+export const rollChestLoot=(random=Math.random)=>weightedLoot(Object.entries(CHEST_DROP_WEIGHTS),random);
 export const canReceiveItem=(actor,item)=>!!ITEMS[item]&&(!isOlo(actor)||![EGG,HOT_POT].includes(item));
 export const itemSlots=actor=>isOlo(actor)?['item','itemQ']:['item'];
 export const freeItemSlot=actor=>itemSlots(actor).find(slot=>!actor[slot])||null;
@@ -10,7 +12,7 @@ export const hasItem=(actor,item)=>itemSlots(actor).some(slot=>actor[slot]===ite
 export function putItem(actor,item,random=Math.random){const slot=freeItemSlot(actor);if(!slot)return null;actor[slot]=resolveActorLoot(actor,item,random);actor.lastLootSlot=slot;return slot;}
 export function resolveActorLoot(actor,item,random=Math.random){
  if(canReceiveItem(actor,item))return item;
- const pool=[EXHAUST,SELF_RESCUE,FRIED_RICE];return pool[Math.min(2,Math.max(0,Math.floor(random()*3)))];
+ return weightedLoot([EXHAUST,SELF_RESCUE,FRIED_RICE].map(item=>[item,CHEST_DROP_WEIGHTS[item]]),random);
 }
 export const rollActorLoot=(actor,random=Math.random)=>resolveActorLoot(actor,rollChestLoot(random),random);
 export function recordDogKick(actor,random=Math.random){
@@ -61,7 +63,14 @@ export function advanceChest(actor,chest,dt,obstacles,random=Math.random){
  for(let i=1;i<steps;i++)if(blocked(actor.x+(chest.x-actor.x)*i/steps,actor.z+(chest.z-actor.z)*i/steps,obstacles,.15))return false;
  chest.progress=Math.min(1,chest.progress+Math.max(0,dt)/CHEST_SECONDS);
  if(chest.progress<1)return false;
- chest.opened=true;putItem(actor,chest.loot||EGG,random);return true;
+ chest.opened=true;chest.refreshIn=CHEST_REFRESH_SECONDS;putItem(actor,chest.loot||EGG,random);return true;
+}
+// Only consumed chests count down; an unopened chest keeps its opening progress.
+export function refreshChest(chest,dt,random=Math.random){
+ if(!chest.opened)return false;
+ chest.refreshIn=Math.max(0,(chest.refreshIn??CHEST_REFRESH_SECONDS)-Math.max(0,dt));
+ if(chest.refreshIn>1e-7)return false;
+ Object.assign(chest,{opened:false,progress:0,refreshIn:0,loot:rollChestLoot(random)});return true;
 }
 export function consumeEgg(actor){
  if(actor.state!=='active'||actor.item!==EGG)return false;

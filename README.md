@@ -1,6 +1,6 @@
 # 合肥惊魂夜
 
-基于 Three.js + Electron 的 3D 1v4 非对称追逃游戏。当前版本 **1.3.0**，联机协议 **39**；正式分发版本从 1.0.0 起编号。
+基于 Three.js + Electron 的 3D 1v4 非对称追逃游戏。当前版本 **1.3.1**，联机协议 **40**；正式分发版本从 1.0.0 起编号。
 
 开发和发布仓库：[galaxy-of-homos/hefei-night](https://github.com/galaxy-of-homos/hefei-night)。导入源码来源：[SongYuYang114/hefei-night-public](https://github.com/SongYuYang114/hefei-night-public)。
 
@@ -25,6 +25,8 @@ npm run test:launcher   # Electron 登录器与游戏启动验证
 
 新地图实机与双端 P2P 验证：`npx electron tools/test-road-map-game.cjs`（需要 OpenSSL 生成临时本地测试证书，输出在仓库外 `../road-map-130-game/`）。
 
+宝箱刷新实机与双端 P2P 验证：`npx electron tools/test-chest-refresh-game.cjs`（实际等待 90 秒，输出在仓库外 `../chest-131-game/`）。
+
 生成 Windows 便携版：
 
 ```powershell
@@ -34,6 +36,8 @@ npm run build
 构建输出在 `../build-v版本号/`。打包后执行 `npm run release:audit` 检查配置隔离，执行 `npm run release:prepare` 生成签名分发产物。版本管理和分发流程以 [SOP.md](SOP.md) 为准。
 
 ## 游戏内容
+
+- 宝箱开启后 90 秒原地补满，可再次花 10 秒开启。蛋炒饭概率 8%，传奇诡异香菇（宋雨菇）8%，其他四种道具各 21%；踢狗奖励沿用掉落表，Olo 继续排除蛋和回血道具。
 
 - 混乱车流：汽车、三轮车、电动车各四辆，会穿插变道。轮子越少撞击越强，电动车可撞飞经典车技及普通 NPC；Olo、VR 形态保留免疫，传说橘猫能顶飞电动车。被撞飞的交通车辆高抛翻滚，允许飞出地图，砸中角色眩晕三秒且不扣血；落地残骸保留三秒后消失，再从道路入口补充车流。
 
@@ -56,6 +60,7 @@ WASD 移动，鼠标转动视角，滚轮缩放；Q 技能，E 道具，F 交互
 ## 文档
 
 - [版本管理与分发 SOP](SOP.md)
+- [1.3.1 宝箱刷新与掉落调整](docs/releases/1.3.1.md)
 - [1.3.0 混乱车流与飞车砸击](docs/releases/1.3.0.md)
 - [1.2.0 商铺、栅栏与撞飞车辆](docs/releases/1.2.0.md)
 - [1.1.0 合肥车道更新说明](docs/releases/1.1.0.md)
